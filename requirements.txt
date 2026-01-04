@@ -1,0 +1,21 @@
+# --- Core Data Processing ---
+pandas
+numpy
+lxml              # Crucial for fast PubMed XML parsing
+openpyxl          # For reading Excel files if needed
+
+# --- API & Web ---
+fastapi
+uvicorn[standard]
+pydantic          # For Input Validation [cite: 7]
+python-dotenv     # For managing API keys
+
+# --- RAG & AI ---
+chromadb          # The Vector Database [cite: 13]
+langchain
+langchain-community
+sentence-transformers  # For local embeddings and Cross-Encoders
+torch             # Required for the transformer models
+
+# --- Utils ---
+tqdm              # Progress bars for long processing tasks
