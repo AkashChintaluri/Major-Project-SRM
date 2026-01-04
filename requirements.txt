@@ -19,3 +19,5 @@ torch             # Required for the transformer models
 
 # --- Utils ---
 tqdm              # Progress bars for long processing tasks
+
+pyarrow
