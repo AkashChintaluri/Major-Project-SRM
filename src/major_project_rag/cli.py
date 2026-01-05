@@ -46,40 +46,53 @@ def _cmd_pubmed_extract(_args: argparse.Namespace) -> int:
 
 def _cmd_pubmed_to_pinecone(args: argparse.Namespace) -> int:
     # 1) XML -> Parquet
-    extract_pubmed_xml_to_parquet()
+    if not args.skip_extract:
+        extract_pubmed_xml_to_parquet()
 
     # 2) Parquet -> chunk -> embed -> upsert
-    cfg = PineconeIndexConfig(
-        index_name=args.index_name,
-        namespace=args.namespace,
-        metric=args.metric,
-        cloud=args.cloud,
-        region=args.region,
-        host=args.host,
-        embed_model=args.embed_model,
-        embed_input_type=args.embed_input_type,
-        batch_size=args.batch_size,
-        chunk_size=args.chunk_size,
-        chunk_overlap=args.chunk_overlap,
-    )
+    cfg_kwargs: dict = {
+        "index_name": args.index_name,
+        "namespace": args.namespace,
+        "metric": args.metric,
+        "cloud": args.cloud,
+        "region": args.region,
+        "batch_size": args.batch_size,
+        "chunk_size": args.chunk_size,
+        "chunk_overlap": args.chunk_overlap,
+    }
+    # Only override env-backed defaults when explicitly provided.
+    if args.host:
+        cfg_kwargs["host"] = args.host
+    if args.embed_model:
+        cfg_kwargs["embed_model"] = args.embed_model
+    if args.embed_input_type:
+        cfg_kwargs["embed_input_type"] = args.embed_input_type
+
+    cfg = PineconeIndexConfig(**cfg_kwargs)
     build_or_update_index(cfg=cfg, recreate=args.recreate, limit=args.limit)
     return 0
 
 
 def _cmd_pinecone_index(args: argparse.Namespace) -> int:
-    cfg = PineconeIndexConfig(
-        batch_size=args.batch_size,
-        index_name=args.index_name,
-        namespace=args.namespace,
-        metric=args.metric,
-        cloud=args.cloud,
-        region=args.region,
-        host=args.host,
-        embed_model=args.embed_model,
-        embed_input_type=args.embed_input_type,
-        chunk_size=args.chunk_size,
-        chunk_overlap=args.chunk_overlap,
-    )
+    cfg_kwargs: dict = {
+        "batch_size": args.batch_size,
+        "index_name": args.index_name,
+        "namespace": args.namespace,
+        "metric": args.metric,
+        "cloud": args.cloud,
+        "region": args.region,
+        "chunk_size": args.chunk_size,
+        "chunk_overlap": args.chunk_overlap,
+    }
+    # Only override env-backed defaults when explicitly provided.
+    if args.host:
+        cfg_kwargs["host"] = args.host
+    if args.embed_model:
+        cfg_kwargs["embed_model"] = args.embed_model
+    if args.embed_input_type:
+        cfg_kwargs["embed_input_type"] = args.embed_input_type
+
+    cfg = PineconeIndexConfig(**cfg_kwargs)
     build_or_update_index(cfg=cfg, recreate=args.recreate, limit=args.limit)
     return 0
 
@@ -114,17 +127,30 @@ def build_parser() -> argparse.ArgumentParser:
         "pubmed-to-pinecone",
         help="One-shot: PubMed XML -> Parquet -> chunk -> Pinecone embed -> upsert",
     )
+    p2p.add_argument(
+        "--skip-extract",
+        action="store_true",
+        help="Skip XML parsing step and index from existing data/processed/pubmed_extracted.parquet",
+    )
     p2p.add_argument("--recreate", action="store_true", help="Delete and recreate the Pinecone index before indexing")
     p2p.add_argument("--limit", type=int, default=None, help="Limit number of records (for testing)")
     p2p.add_argument("--batch-size", type=int, default=100, help="Batch size for embedding/upserts")
     p2p.add_argument("--chunk-size", type=int, default=800, help="Chunk size (characters) before embedding")
     p2p.add_argument("--chunk-overlap", type=int, default=100, help="Chunk overlap (characters)")
-    p2p.add_argument("--host", default="", help="Pinecone index host URL (recommended for on-demand indices)")
-    p2p.add_argument("--embed-model", default="llama-text-embed-v2", help="Pinecone embedding model name")
+    p2p.add_argument(
+        "--host",
+        default=None,
+        help="Pinecone index host URL (defaults to PINECONE_HOST from config.env)",
+    )
+    p2p.add_argument(
+        "--embed-model",
+        default=None,
+        help="Pinecone embedding model name (defaults to PINECONE_EMBED_MODEL)",
+    )
     p2p.add_argument(
         "--embed-input-type",
-        default="passage",
-        help="Embedding input type for Pinecone inference (passage|query)",
+        default=None,
+        help="Embedding input type for Pinecone inference (passage|query). Defaults to PINECONE_EMBED_INPUT_TYPE",
     )
     p2p.add_argument("--index-name", default="pubmed-evidence", help="Pinecone index name (unused if --host is set)")
     p2p.add_argument("--namespace", default="default", help="Pinecone namespace")
@@ -139,12 +165,20 @@ def build_parser() -> argparse.ArgumentParser:
     pi.add_argument("--batch-size", type=int, default=100, help="Batch size for embedding/upserts")
     pi.add_argument("--chunk-size", type=int, default=800, help="Chunk size (characters) before embedding")
     pi.add_argument("--chunk-overlap", type=int, default=100, help="Chunk overlap (characters)")
-    pi.add_argument("--host", default="", help="Pinecone index host URL (recommended for on-demand indices)")
-    pi.add_argument("--embed-model", default="llama-text-embed-v2", help="Pinecone embedding model name")
+    pi.add_argument(
+        "--host",
+        default=None,
+        help="Pinecone index host URL (defaults to PINECONE_HOST from config.env)",
+    )
+    pi.add_argument(
+        "--embed-model",
+        default=None,
+        help="Pinecone embedding model name (defaults to PINECONE_EMBED_MODEL)",
+    )
     pi.add_argument(
         "--embed-input-type",
-        default="passage",
-        help="Embedding input type for Pinecone inference (passage|query)",
+        default=None,
+        help="Embedding input type for Pinecone inference (passage|query). Defaults to PINECONE_EMBED_INPUT_TYPE",
     )
     pi.add_argument("--index-name", default="pubmed-evidence", help="Pinecone index name")
     pi.add_argument("--namespace", default="default", help="Pinecone namespace")
