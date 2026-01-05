@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -24,16 +24,18 @@ class PineconeIndexConfig:
 
     # Pinecone connection/config
     api_key_env: str = "PINECONE_API_KEY"
-    index_name: str = _env_default("PINECONE_INDEX_NAME", "pubmed-evidence")
-    namespace: str = _env_default("PINECONE_NAMESPACE", "default")
-    metric: str = _env_default("PINECONE_METRIC", "cosine")  # cosine | dotproduct | euclidean
-    cloud: str = _env_default("PINECONE_CLOUD", "aws")
-    region: str = _env_default("PINECONE_REGION", "us-east-1")
-    host: str = _env_default("PINECONE_HOST", "")
+    # NOTE: use default_factory so env vars are evaluated at *instance creation time*,
+    # after config.env is loaded by the CLI.
+    index_name: str = field(default_factory=lambda: _env_default("PINECONE_INDEX_NAME", "pubmed-evidence"))
+    namespace: str = field(default_factory=lambda: _env_default("PINECONE_NAMESPACE", "default"))
+    metric: str = field(default_factory=lambda: _env_default("PINECONE_METRIC", "cosine"))  # cosine|dotproduct|euclidean
+    cloud: str = field(default_factory=lambda: _env_default("PINECONE_CLOUD", "aws"))
+    region: str = field(default_factory=lambda: _env_default("PINECONE_REGION", "us-east-1"))
+    host: str = field(default_factory=lambda: _env_default("PINECONE_HOST", ""))
 
     # Pinecone hosted embeddings
-    embed_model: str = _env_default("PINECONE_EMBED_MODEL", "llama-text-embed-v2")
-    embed_input_type: str = _env_default("PINECONE_EMBED_INPUT_TYPE", "passage")  # passage|query
+    embed_model: str = field(default_factory=lambda: _env_default("PINECONE_EMBED_MODEL", "llama-text-embed-v2"))
+    embed_input_type: str = field(default_factory=lambda: _env_default("PINECONE_EMBED_INPUT_TYPE", "passage"))  # passage|query
 
     # Embeddings / ingestion
     batch_size: int = 100
@@ -142,26 +144,41 @@ def build_or_update_index(
     batch_docs: list[str] = []
     batch_meta: list[dict] = []
 
+    # Pinecone Inference API limit (for llama-text-embed-v2): max 96 inputs per embed request.
+    # If you increase cfg.batch_size above this, we automatically sub-batch for embedding.
+    max_embed_inputs = 96
+
     def flush() -> None:
         if not batch_docs:
             return
-        # Pinecone hosted embeddings
-        embeds = pc.inference.embed(
-            model=cfg.embed_model,
-            inputs=batch_docs,
-            parameters={"input_type": cfg.embed_input_type},
-        )
-        data = getattr(embeds, "data", None) or embeds.get("data")
-        vectors = []
-        for item in data:
-            values = getattr(item, "values", None) or item.get("values")
-            vectors.append(values)
 
-        to_upsert = [
-            {"id": vid, "values": vec, "metadata": meta}
-            for vid, vec, meta in zip(batch_ids, vectors, batch_meta, strict=False)
-        ]
-        index.upsert(vectors=to_upsert, namespace=cfg.namespace)
+        # Pinecone hosted embeddings (sub-batched to satisfy per-request input limits)
+        start = 0
+        while start < len(batch_docs):
+            end = min(start + max_embed_inputs, len(batch_docs))
+            docs_slice = batch_docs[start:end]
+            ids_slice = batch_ids[start:end]
+            meta_slice = batch_meta[start:end]
+
+            embeds = pc.inference.embed(
+                model=cfg.embed_model,
+                inputs=docs_slice,
+                parameters={"input_type": cfg.embed_input_type},
+            )
+            data = getattr(embeds, "data", None) or embeds.get("data")
+            vectors = []
+            for item in data:
+                values = getattr(item, "values", None) or item.get("values")
+                vectors.append(values)
+
+            to_upsert = [
+                {"id": vid, "values": vec, "metadata": meta}
+                for vid, vec, meta in zip(ids_slice, vectors, meta_slice, strict=False)
+            ]
+            index.upsert(vectors=to_upsert, namespace=cfg.namespace)
+
+            start = end
+
         batch_ids.clear()
         batch_docs.clear()
         batch_meta.clear()
