@@ -44,6 +44,28 @@ def _cmd_pubmed_extract(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_pubmed_to_pinecone(args: argparse.Namespace) -> int:
+    # 1) XML -> Parquet
+    extract_pubmed_xml_to_parquet()
+
+    # 2) Parquet -> chunk -> embed -> upsert
+    cfg = PineconeIndexConfig(
+        index_name=args.index_name,
+        namespace=args.namespace,
+        metric=args.metric,
+        cloud=args.cloud,
+        region=args.region,
+        host=args.host,
+        embed_model=args.embed_model,
+        embed_input_type=args.embed_input_type,
+        batch_size=args.batch_size,
+        chunk_size=args.chunk_size,
+        chunk_overlap=args.chunk_overlap,
+    )
+    build_or_update_index(cfg=cfg, recreate=args.recreate, limit=args.limit)
+    return 0
+
+
 def _cmd_pinecone_index(args: argparse.Namespace) -> int:
     cfg = PineconeIndexConfig(
         batch_size=args.batch_size,
@@ -87,6 +109,29 @@ def build_parser() -> argparse.ArgumentParser:
 
     pe = sub.add_parser("pubmed-extract", help="Extract PubMed XML -> data/processed/pubmed_extracted.parquet")
     pe.set_defaults(func=_cmd_pubmed_extract)
+
+    p2p = sub.add_parser(
+        "pubmed-to-pinecone",
+        help="One-shot: PubMed XML -> Parquet -> chunk -> Pinecone embed -> upsert",
+    )
+    p2p.add_argument("--recreate", action="store_true", help="Delete and recreate the Pinecone index before indexing")
+    p2p.add_argument("--limit", type=int, default=None, help="Limit number of records (for testing)")
+    p2p.add_argument("--batch-size", type=int, default=100, help="Batch size for embedding/upserts")
+    p2p.add_argument("--chunk-size", type=int, default=800, help="Chunk size (characters) before embedding")
+    p2p.add_argument("--chunk-overlap", type=int, default=100, help="Chunk overlap (characters)")
+    p2p.add_argument("--host", default="", help="Pinecone index host URL (recommended for on-demand indices)")
+    p2p.add_argument("--embed-model", default="llama-text-embed-v2", help="Pinecone embedding model name")
+    p2p.add_argument(
+        "--embed-input-type",
+        default="passage",
+        help="Embedding input type for Pinecone inference (passage|query)",
+    )
+    p2p.add_argument("--index-name", default="pubmed-evidence", help="Pinecone index name (unused if --host is set)")
+    p2p.add_argument("--namespace", default="default", help="Pinecone namespace")
+    p2p.add_argument("--metric", default="cosine", help="Pinecone metric (unused if --host is set)")
+    p2p.add_argument("--cloud", default="aws", help="Pinecone serverless cloud (unused if --host is set)")
+    p2p.add_argument("--region", default="us-east-1", help="Pinecone serverless region (unused if --host is set)")
+    p2p.set_defaults(func=_cmd_pubmed_to_pinecone)
 
     pi = sub.add_parser("pinecone-index", help="Chunk + embed + upsert PubMed abstracts into Pinecone")
     pi.add_argument("--recreate", action="store_true", help="Delete and recreate the Pinecone index before indexing")

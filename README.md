@@ -44,8 +44,11 @@ python -m major_project_rag --help
 # 1) Extract PubMed XML -> Parquet
 python -m major_project_rag pubmed-extract
 
-# 2) Chunk + embed + upsert PubMed abstracts into Pinecone
-# Required: set PINECONE_API_KEY in your environment
+# One-shot pipeline (recommended): XML -> Parquet -> chunk -> Pinecone embed -> upsert
+# Required: set PINECONE_API_KEY and PINECONE_HOST (recommended via config.env)
+python -m major_project_rag pubmed-to-pinecone
+
+# (Alternative) Only index from an existing parquet
 python -m major_project_rag pinecone-index --host "YOUR_PINECONE_HOST"
 
 # (Optional) Tune chunking (characters)
