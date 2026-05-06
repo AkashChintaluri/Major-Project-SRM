@@ -1,6 +1,6 @@
 # Drug Interaction Checker — RAG System
 
-A Retrieval-Augmented Generation (RAG) system for drug-drug interaction (DDI) lookup. Enter two medications and get a structured answer — what happens when they are taken together, what the body experiences, and what alternatives exist — grounded entirely in a curated medical knowledge base.
+A Retrieval-Augmented Generation (RAG) system for drug-drug interaction (DDI) lookup. Enter two medications and get a structured answer — what happens when they are taken together and what the body experiences — grounded entirely in a curated medical knowledge base.
 
 ---
 
@@ -60,10 +60,9 @@ Ingested from four data sources (~207,083 vectors):
   "top_k": 5
 }
 ```
-Returns a structured answer with three sections:
+Returns a structured answer with two sections:
 - **What happens when both are taken together** — directional interaction effects
 - **What happens in the body** — physiological effects in plain language
-- **What can be done instead** — alternatives mentioned in the knowledge base
 
 ### `POST /query` — Raw vector search
 Returns the top-k most similar chunks from Pinecone without LLM generation.

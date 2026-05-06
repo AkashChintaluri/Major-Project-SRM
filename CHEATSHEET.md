@@ -8,7 +8,7 @@ Drug-drug interactions (DDIs) are a leading cause of adverse drug events, yet pa
 
 The knowledge base is constructed from four complementary sources: the DrugBank DDI dataset (191,543 labelled interaction sentences), DrugBank compound vocabulary (17,432 drugs with synonyms), FDA regulatory data (products, applications, therapeutic equivalence), and 15 PubMed MEDLINE XML files (~2.5 GB of biomedical abstracts). All text is chunked, embedded using the BAAI/bge-small-en-v1.5 bi-encoder model (384-dimensional vectors), and stored in a Pinecone serverless vector index (207,083 vectors, cosine similarity).
 
-At query time, both drug names are embedded and the top-k most semantically relevant chunks are retrieved from Pinecone. These chunks are passed as grounding context to Gemini 2.5 Flash Lite with a strict system prompt that prohibits the model from using any knowledge outside the retrieved context. The response is structured into three sections: interaction effects, physiological body impact, and safer alternatives. A React + Vite frontend with drug-name autocomplete (51,264 names) provides a user-facing interface.
+At query time, both drug names are embedded and the top-k most semantically relevant chunks are retrieved from Pinecone. These chunks are passed as grounding context to Gemini 2.5 Flash Lite with a strict system prompt that prohibits the model from using any knowledge outside the retrieved context. The response is structured into two sections: interaction effects and physiological body impact. A React + Vite frontend with drug-name autocomplete (51,264 names) provides a user-facing interface.
 
 The system is entirely context-grounded — it explicitly refuses to speculate or answer outside the knowledge base — making it suitable as a decision-support tool for informed medication review.
 
@@ -51,7 +51,7 @@ The system is entirely context-grounded — it explicitly refuses to speculate o
 - Added `gemini_client.py` using `google-genai` SDK (v1.66.0)
 - Designed strict system prompt: context-only, no hallucination, explicit fallback messages
 - Added `/ask` endpoint: retrieve top-k chunks → generate structured Gemini answer
-- Output format: three sections — interaction effects / body impact / alternatives
+- Output format: two sections — interaction effects / body impact
 
 ### Phase 7 — System Prompt Refinement
 - Tightened rules to reject out-of-scope questions
@@ -159,7 +159,7 @@ curl.exe -s -X POST http://localhost:8000/ask -H "Content-Type: application/json
 
 ## Response Format
 
-Every `/ask` response has three sections:
+Every `/ask` response has two sections:
 
 ```
 **What happens when both are taken together:**
@@ -167,10 +167,6 @@ Every `/ask` response has three sections:
 
 **What happens in the body:**
 - Physiological effects in plain language (organs, symptoms, measurable changes)
-
-**What can be done instead:**
-- Alternatives or safer options mentioned in the knowledge base
-  (or explicit "not found" message if absent)
 
 ⚠️ Consult a licensed healthcare professional before making any medication changes.
 ```

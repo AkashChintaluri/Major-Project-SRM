@@ -50,7 +50,7 @@ STRICT RULES — follow every one without exception:
 3. Do NOT speculate, infer, or fill gaps with general pharmacology knowledge.
 4. Do NOT answer questions unrelated to drug-drug interactions (e.g. disease explanations, dosing, lifestyle advice). Respond: "This question is outside the scope of the drug interaction knowledge base."
 
-OUTPUT FORMAT — always use this exact three-section structure when the context is sufficient:
+OUTPUT FORMAT — always use this exact two-section structure when the context is sufficient:
 
 **What happens when both are taken together:**
 - List every interaction effect found in the context. Be specific and directional (e.g. "Drug A increases the serum concentration of Drug B", "risk of bleeding is increased").
@@ -58,10 +58,6 @@ OUTPUT FORMAT — always use this exact three-section structure when the context
 **What happens in the body:**
 - Explain the physiological and clinical effects on the body as described in the context: what organs or systems are affected, what symptoms or measurable changes the patient may experience (e.g. increased bleeding, elevated drug levels in blood, liver enzyme changes, blood pressure changes). Use plain language a patient can understand.
 - If the context contains no body-level detail, write: "The knowledge base does not describe the specific body effects for this combination."
-
-**What can be done instead:**
-- List only alternatives or safer options explicitly mentioned in the context.
-- If the context mentions no alternatives, write: "The knowledge base does not mention specific alternatives for this combination."
 
 End every response with: "⚠️ Consult a licensed healthcare professional before making any medication changes."
 """
@@ -98,15 +94,25 @@ def generate_answer(query: str, context_chunks: list[str]) -> str:
 
     print(f"[gemini] Generating answer for: '{query[:80]}{'…' if len(query) > 80 else ''}'")
 
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        config=types.GenerateContentConfig(
-            system_instruction=_SYSTEM_PROMPT,
-            temperature=0.2,          # low temperature for factual accuracy
-            max_output_tokens=1024,
-        ),
-        contents=user_message,
-    )
+    try:
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            config=types.GenerateContentConfig(
+                system_instruction=_SYSTEM_PROMPT,
+                temperature=0.2,
+                max_output_tokens=1024,
+            ),
+            contents=user_message,
+        )
+    except Exception as exc:
+        message = str(exc)
+        if "PERMISSION_DENIED" in message or "403" in message:
+            raise RuntimeError(
+                f"Gemini access was denied for model '{GEMINI_MODEL}'. "
+                "Check that the API key belongs to a project with Gemini access and "
+                "that the configured model is enabled for that key."
+            ) from exc
+        raise
 
     answer = response.text or ""
     print(f"[gemini] Answer generated ({len(answer)} chars).")

@@ -5,10 +5,7 @@ function parseAnswer(answer) {
     /\*\*What happens when both are taken together:\*\*\s*([\s\S]*?)(?=\*\*What happens in the body:|$)/i
   )
   const bodyMatch = answer.match(
-    /\*\*What happens in the body:\*\*\s*([\s\S]*?)(?=\*\*What can be done instead:|$)/i
-  )
-  const alternativesMatch = answer.match(
-    /\*\*What can be done instead:\*\*\s*([\s\S]*?)(?=⚠|$)/i
+    /\*\*What happens in the body:\*\*\s*([\s\S]*?)(?=⚠|$)/i
   )
   const disclaimer = answer.includes('⚠') ? '⚠️ Consult a licensed healthcare professional before making any medication changes.' : null
 
@@ -23,7 +20,6 @@ function parseAnswer(answer) {
   return {
     interaction: bullets(interactionMatch?.[1]),
     body: bullets(bodyMatch?.[1]),
-    alternatives: bullets(alternativesMatch?.[1]),
     disclaimer,
     raw: answer,
   }
@@ -33,7 +29,7 @@ export default function ResultCard({ result }) {
   const { drug1, drug2, answer, model, sources } = result
   const parsed = parseAnswer(answer)
 
-  const hasSections = parsed.interaction.length > 0 || parsed.body.length > 0 || parsed.alternatives.length > 0
+  const hasSections = parsed.interaction.length > 0 || parsed.body.length > 0
 
   return (
     <div className="result-card">
@@ -63,14 +59,6 @@ export default function ResultCard({ result }) {
             title="What happens in the body"
             items={parsed.body}
             accent="body"
-          />
-
-          {/* Section 3 */}
-          <Section
-            icon="✅"
-            title="What can be done instead"
-            items={parsed.alternatives}
-            accent="safe"
           />
 
           {/* Disclaimer */}

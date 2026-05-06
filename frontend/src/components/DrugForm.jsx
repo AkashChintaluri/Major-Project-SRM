@@ -131,7 +131,7 @@ export default function DrugForm({ onSearch, loading }) {
       <h1 className="form-title">Drug Interaction Checker</h1>
       <p className="form-subtitle">
         Enter two medications to find out what happens when they are taken together
-        and what alternatives exist.
+        and what happens in the body.
       </p>
 
       <div className="inputs-row">
